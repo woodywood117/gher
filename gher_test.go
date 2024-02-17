@@ -36,6 +36,13 @@ func HelloInString(name string, _ *http.Request) (string, error) {
 	return fmt.Sprintf("Hello, %s!", name), nil
 }
 
+func HelloInPointer(p *Person, _ *http.Request) (string, error) {
+	if p == nil {
+		return "", fmt.Errorf("nil pointer")
+	}
+	return fmt.Sprintf("Hello, %s!", p.Name), nil
+}
+
 func TestGherSuccess(t *testing.T) {
 	server := httptest.NewServer(Gher(Hello))
 
@@ -154,8 +161,7 @@ func TestGherStruct(t *testing.T) {
 func TestGherEmpty(t *testing.T) {
 	server := httptest.NewServer(Gher(HelloEmpty))
 
-	body := bytes.NewBufferString(`{"name":"World"}`)
-	resp, err := http.Post(server.URL, "application/json", body)
+	resp, err := http.Post(server.URL, "application/json", nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -198,5 +204,54 @@ func TestGherInString(t *testing.T) {
 
 	if output.String() != "Hello, World!" {
 		t.Fatalf("expected %q, got %q", "Hello, World!", output.String())
+	}
+}
+
+func TestGherInPointer(t *testing.T) {
+	server := httptest.NewServer(Gher(HelloInPointer))
+
+	body := bytes.NewBufferString(`{"name":"World"}`)
+	resp, err := http.Post(server.URL, "application/json", body)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("expected status %d, got %d", http.StatusOK, resp.StatusCode)
+	}
+
+	output := new(bytes.Buffer)
+	_, err = output.ReadFrom(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if output.String() != "Hello, World!" {
+		t.Fatalf("expected %q, got %q", "Hello, World!", output.String())
+	}
+}
+
+func TestGherInPointerNil(t *testing.T) {
+	server := httptest.NewServer(Gher(HelloInPointer))
+
+	resp, err := http.Post(server.URL, "application/json", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusInternalServerError {
+		t.Fatalf("expected status %d, got %d", http.StatusInternalServerError, resp.StatusCode)
+	}
+
+	output := new(bytes.Buffer)
+	_, err = output.ReadFrom(resp.Body)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	if output.String() != `{"error": "nil pointer"}` {
+		t.Fatalf("expected %q, got %q", `{"error": "nil pointer"}`, output.String())
 	}
 }

@@ -3,6 +3,7 @@ package gher
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,6 +29,9 @@ func Gher[I, O any](next func(I, *http.Request) (O, error)) http.Handler {
 			reflect.ValueOf(i).Elem().SetString(buffer.String())
 		} else {
 			err := json.NewDecoder(r.Body).Decode(i)
+			if errors.Is(err, io.EOF) {
+				err = nil
+			}
 			if err != nil {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte(`{"error": "failed to parse request"}`))
